@@ -6,19 +6,35 @@ use Nipwaayoni\Exception\ConfigurationFileNotFoundException;
 use Nipwaayoni\Exception\ConfigurationFileNotValidException;
 use Nipwaayoni\Exception\Helper\UnsupportedConfigurationValueException;
 use Nipwaayoni\Config;
+use org\bovigo\vfs\vfsStream;
 
 /**
  * Test Case for @see \Nipwaayoni\Config
  */
 final class ConfigTest extends TestCase
 {
+    /** @var string */
+    private $configFileName;
 
-  /**
-   * @covers \Nipwaayoni\Config::__construct
-   * @covers \Nipwaayoni\Agent::getConfig
-   * @covers \Nipwaayoni\Config::getDefaultConfig
-   * @covers \Nipwaayoni\Config::asArray
-   */
+    public function setUp(): void
+    {
+        vfsStream::setup('projectDir', null, ['conf' => []]);
+        Config::addSearchPath(vfsStream::url('projectDir'));
+
+        $this->configFileName = Config::DEFAULT_CONFIG_FILE;
+    }
+
+    public function tearDown(): void
+    {
+        Config::resetSearchPath();
+    }
+
+    /**
+     * @covers \Nipwaayoni\Config::__construct
+     * @covers \Nipwaayoni\Agent::getConfig
+     * @covers \Nipwaayoni\Config::getDefaultConfig
+     * @covers \Nipwaayoni\Config::asArray
+     */
     public function testControlDefaultConfig()
     {
         $appName = sprintf('app_name_%d', rand(10, 99));
@@ -144,35 +160,25 @@ final class ConfigTest extends TestCase
         ];
     }
 
-    public function testLoadsConfigurationFromFileInCurrentDirectory(): void
+    public function testLoadsConfigurationFromFileInSearchPath(): void
     {
-        putenv('APP_NAME=Test Application');
+        $this->makeGoodConfigFile('Test Application');
 
         $config = new Config();
 
         $this->assertEquals('Test Application', $config->get('appName'));
     }
 
-    public function testDoesNotErrorWhenDefaultFileNotFoundInCurrentDirectory(): void
+    public function testDoesNotErrorWhenDefaultFileNotFoundInSearchPath(): void
     {
-        $this->markTestSkipped('Changing the cwd to avoid finding the files causes subsequent test problems.');
-
-        putenv('APP_NAME=Test Application');
-
-        // TODO This approach of changing cwd is messy and prone to errors, we need a better way to test
-        $cwd = getcwd();
-        chdir('tools'); // Tools directory should always exist in this project
-
         $config = new Config(['appName' => 'Array App Name']);
-
-        chdir($cwd);
 
         $this->assertEquals('Array App Name', $config->get('appName'));
     }
 
     public function testArrayValuesOverrideFileValues(): void
     {
-        putenv('APP_NAME=Test Application');
+        $this->makeGoodConfigFile('Test Application');
 
         $config = new Config(['appName' => 'Array App Name']);
 
@@ -181,34 +187,67 @@ final class ConfigTest extends TestCase
 
     public function testReadsConfigurationFromSpecifiedFile(): void
     {
-        putenv('APP_NAME_TEST=Test Application');
+        $this->configFileName = 'conf' . DIRECTORY_SEPARATOR . 'my-elastic-apm.php';
+        $this->makeGoodConfigFile('Test Application');
 
-        $config = new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm.php');
+        $config = new Config([], vfsStream::url('projectDir') . DIRECTORY_SEPARATOR . $this->configFileName);
 
         $this->assertEquals('Test Application', $config->get('appName'));
     }
 
-    public function testThrowsExcpetionWhenSpecifiedFileIsNotFound(): void
+    public function testThrowsExceptionWhenSpecifiedFileIsNotFound(): void
     {
         $this->expectException(ConfigurationFileNotFoundException::class);
 
-        new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm-not-found.php');
+        new Config([], 'elastic-apm-not-found.php');
     }
 
-    public function testThrowsExceptionWhenSpecifiedFileCannotBeRequired(): void
+    public function testThrowsExceptionWhenConfigFileCannotBeRequired(): void
     {
+        $this->makeInvalidConfigFile();
+
         $this->expectException(ConfigurationFileNotValidException::class);
 
-        new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm-not-valid.php');
+        new Config();
     }
 
-    public function testThrowsExceptionWhenSpecifiedFileDoesNotReturnArray(): void
+    public function testThrowsExceptionWhenConfigFileDoesNotReturnArray(): void
     {
+        $this->makeNonArrayConfigFile();
+
         $this->expectException(ConfigurationFileNotValidException::class);
 
-        new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm-not-array.php');
+        new Config();
     }
 
+    private function makeGoodConfigFile(string $appName): void
+    {
+        $this->makeConfigFile(
+            sprintf('<?php return ["appName" => "%s"];', $appName)
+        );
+    }
+
+    private function makeInvalidConfigFile(): void
+    {
+        $this->makeConfigFile(
+            '<?php syntax error'
+        );
+    }
+
+    private function makeNonArrayConfigFile(): void
+    {
+        $this->makeConfigFile(
+            '<?php return "";'
+        );
+    }
+
+    private function makeConfigFile(string $contents): void
+    {
+        file_put_contents(
+            vfsStream::url('projectDir') . DIRECTORY_SEPARATOR . $this->configFileName,
+            $contents
+        );
+    }
 
     // Why is appName required? Can't we have a default and a zero-conf start up?
 }
