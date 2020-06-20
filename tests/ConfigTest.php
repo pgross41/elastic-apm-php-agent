@@ -2,6 +2,8 @@
 
 namespace Nipwaayoni\Tests;
 
+use Nipwaayoni\Exception\ConfigurationFileNotFoundException;
+use Nipwaayoni\Exception\ConfigurationFileNotValidException;
 use Nipwaayoni\Exception\Helper\UnsupportedConfigurationValueException;
 use Nipwaayoni\Config;
 
@@ -150,4 +152,63 @@ final class ConfigTest extends TestCase
 
         $this->assertEquals('Test Application', $config->get('appName'));
     }
+
+    public function testDoesNotErrorWhenDefaultFileNotFoundInCurrentDirectory(): void
+    {
+        $this->markTestSkipped('Changing the cwd to avoid finding the files causes subsequent test problems.');
+
+        putenv('APP_NAME=Test Application');
+
+        // TODO This approach of changing cwd is messy and prone to errors, we need a better way to test
+        $cwd = getcwd();
+        chdir('tools'); // Tools directory should always exist in this project
+
+        $config = new Config(['appName' => 'Array App Name']);
+
+        chdir($cwd);
+
+        $this->assertEquals('Array App Name', $config->get('appName'));
+    }
+
+    public function testArrayValuesOverrideFileValues(): void
+    {
+        putenv('APP_NAME=Test Application');
+
+        $config = new Config(['appName' => 'Array App Name']);
+
+        $this->assertEquals('Array App Name', $config->get('appName'));
+    }
+
+    public function testReadsConfigurationFromSpecifiedFile(): void
+    {
+        putenv('APP_NAME_TEST=Test Application');
+
+        $config = new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm.php');
+
+        $this->assertEquals('Test Application', $config->get('appName'));
+    }
+
+    public function testThrowsExcpetionWhenSpecifiedFileIsNotFound(): void
+    {
+        $this->expectException(ConfigurationFileNotFoundException::class);
+
+        new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm-not-found.php');
+    }
+
+    public function testThrowsExceptionWhenSpecifiedFileCannotBeRequired(): void
+    {
+        $this->expectException(ConfigurationFileNotValidException::class);
+
+        new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm-not-valid.php');
+    }
+
+    public function testThrowsExceptionWhenSpecifiedFileDoesNotReturnArray(): void
+    {
+        $this->expectException(ConfigurationFileNotValidException::class);
+
+        new Config([], 'tests' . DIRECTORY_SEPARATOR . 'elastic-apm-not-array.php');
+    }
+
+
+    // Why is appName required? Can't we have a default and a zero-conf start up?
 }

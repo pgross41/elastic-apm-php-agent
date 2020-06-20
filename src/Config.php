@@ -2,6 +2,8 @@
 
 namespace Nipwaayoni;
 
+use Nipwaayoni\Exception\ConfigurationFileNotFoundException;
+use Nipwaayoni\Exception\ConfigurationFileNotValidException;
 use Nipwaayoni\Exception\Helper\UnsupportedConfigurationValueException;
 use Nipwaayoni\Exception\MissingAppNameException;
 
@@ -22,10 +24,27 @@ class Config
     /**
      * @param array $config
      */
-    public function __construct(array $config = [])
+    public function __construct(array $config = [], string $configFilePath = null)
     {
-        $fileConfig = require('elastic-apm.php');
-        $config = array_merge($fileConfig, $config);
+        if (null !== $configFilePath && !file_exists($configFilePath)) {
+            throw new ConfigurationFileNotFoundException($configFilePath);
+        }
+
+        $configFilePath = $configFilePath ?? 'elastic-apm.php';
+
+        if (file_exists($configFilePath)) {
+            try{
+                $fileConfig = require($configFilePath);
+            } catch (\ParseError $e) {
+                throw new ConfigurationFileNotValidException($e->getMessage());
+            }
+
+            if (!is_array($fileConfig)) {
+                throw new ConfigurationFileNotValidException(sprintf('Specified configuration file (%s) did not return an array.', $configFilePath));
+            }
+
+            $config = array_merge($fileConfig, $config);
+        }
 
         if (isset($config['appName']) === false) {
             throw new MissingAppNameException();
