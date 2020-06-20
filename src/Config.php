@@ -49,17 +49,7 @@ class Config
     {
         $this->config = array_merge($this->getDefaultConfig(), $this->loadConfig($configFilePath), $config);
 
-        if (isset($this->config['appName']) === false) {
-            throw new MissingAppNameException();
-        }
-
-        foreach (['httpClient', 'env', 'cookies'] as $removedKey) {
-            if (array_key_exists($removedKey, $this->config)) {
-                throw new UnsupportedConfigurationValueException($removedKey);
-            }
-        }
-
-        $this->config['serverUrl'] = rtrim($this->config['serverUrl'], '/');
+        $this->validateConfig();
     }
 
     private function loadConfig(string $configFilePath = null): array
@@ -155,5 +145,20 @@ class Config
             'environment'    => 'development',
             'backtraceLimit' => 0,
         ];
+    }
+
+    private function validateConfig(): void
+    {
+        if (isset($this->config['appName']) === false) {
+            throw new MissingAppNameException();
+        }
+
+        foreach (['httpClient', 'env', 'cookies'] as $removedKey) {
+            if (array_key_exists($removedKey, $this->config)) {
+                throw new UnsupportedConfigurationValueException($removedKey);
+            }
+        }
+
+        $this->config['serverUrl'] = rtrim($this->config['serverUrl'], '/');
     }
 }
