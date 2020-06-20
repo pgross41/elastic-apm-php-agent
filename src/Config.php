@@ -22,8 +22,11 @@ class Config
     /**
      * @param array $config
      */
-    public function __construct(array $config)
+    public function __construct(array $config = [])
     {
+        $fileConfig = require('elastic-apm.php');
+        $config = array_merge($fileConfig, $config);
+
         if (isset($config['appName']) === false) {
             throw new MissingAppNameException();
         }

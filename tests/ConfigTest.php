@@ -1,11 +1,9 @@
 <?php
 
-namespace Nipwaayoni\Tests\Helper;
+namespace Nipwaayoni\Tests;
 
-use Nipwaayoni\Agent;
 use Nipwaayoni\Exception\Helper\UnsupportedConfigurationValueException;
 use Nipwaayoni\Config;
-use Nipwaayoni\Tests\TestCase;
 
 /**
  * Test Case for @see \Nipwaayoni\Config
@@ -142,5 +140,14 @@ final class ConfigTest extends TestCase
             'cookies' => ['cookies'],
             'http client' => ['httpClient'],
         ];
+    }
+
+    public function testLoadsConfigurationFromFileInCurrentDirectory(): void
+    {
+        putenv('APP_NAME=Test Application');
+
+        $config = new Config();
+
+        $this->assertEquals('Test Application', $config->get('appName'));
     }
 }
