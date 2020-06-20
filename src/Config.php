@@ -5,6 +5,7 @@ namespace Nipwaayoni;
 use Nipwaayoni\Exception\ConfigurationFileNotFoundException;
 use Nipwaayoni\Exception\ConfigurationFileNotValidException;
 use Nipwaayoni\Exception\Helper\UnsupportedConfigurationValueException;
+use Nipwaayoni\Exception\InvalidArgumentException;
 use Nipwaayoni\Exception\MissingAppNameException;
 
 /**
@@ -26,10 +27,11 @@ class Config
 
     public static function addSearchPath(string $path): void
     {
-        // rtrim '/' from path
-        // ensure $path exists
-        // array_unshift path onto search paths
-        array_unshift(self::$configSearchPaths, $path);
+        if (!file_exists($path)) {
+            throw new InvalidArgumentException(sprintf('Path "%s" does not exist', $path));
+        }
+
+        array_unshift(self::$configSearchPaths, rtrim($path, '/'));
     }
 
     public static function resetSearchPath(): void
