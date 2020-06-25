@@ -6,23 +6,30 @@ namespace Nipwaayoni\Metrics;
 
 class MetricCollector
 {
-    /** @var array */
-    private $registeredMetrics = [];
+    /** @var MetricProvider */
+    private $providerClass;
 
     private $metrics = [];
 
+    public function __construct()
+    {
+        $this->providerClass = LinuxProvider::class;
+    }
+
     public function collect(): void
     {
-        $collected = [];
-        foreach ($this->registeredMetrics as $metric) {
-            /** @var MetricProvider $metric */
-            $metric = new $metric();
+        $providerClass = $this->providerClass;
 
-            $metric->measure();
+        /** @var MetricProvider $provider */
+        $provider = new $providerClass;
 
-            $collected[] = $metric->data();
-        }
+        $provider->measure();
 
-        $this->metrics = array_merge($collected);
+        $this->metrics = $provider->data();
+    }
+
+    public function data(): array
+    {
+        return $this->metrics;
     }
 }
